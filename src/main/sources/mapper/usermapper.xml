@@ -1,0 +1,285 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--MyBatis映射文件-->
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ypf.feijibookserver.dao.UserMapper">
+    <!--注册该账户-->
+    <insert id="register">
+        insert into user_info (account, password)
+        values (#{account},
+                #{password})
+    </insert>
+
+    <!--设置该用户的类型编辑设置-->
+    <insert id="setTypeSetting">
+        insert into record_type (account,
+        ooa,
+        ioe,
+        detail_type,
+        icon_url,
+        custom_type_name,
+        doc)
+        values
+        <foreach collection="list" item="item" separator=",">
+            (#{account},
+            #{item.ooa},
+            #{item.ioe},
+            #{item.detail_type},
+            #{item.icon_url},
+            #{item.custom_type_name},
+            #{item.doc})
+        </foreach>
+
+    </insert>
+
+    <!--添加记录-->
+    <insert id="addRecord" parameterType="com.ypf.feijibookserver.entity.DetailRecordBean">
+        insert into detail_record(id,
+                                  account,
+                                  year,
+                                  month,
+                                  day,
+                                  week,
+                                  woy,
+                                  ioe,
+                                  icon_url,
+                                  detail_type,
+                                  money,
+                                  remark,
+                                  record_order)
+
+        values (#{id},
+                #{account},
+                #{year},
+                #{month},
+                #{day},
+                #{week},
+                #{woy},
+                #{ioe},
+                #{icon_url},
+                #{detail_type},
+                #{money},
+                #{remark},
+                #{record_order})
+    </insert>
+
+    <insert id="insertYearExpend" parameterType="com.ypf.feijibookserver.entity.YearExpendBean">
+        insert into year_main_expend(account,year,money,type)
+        values (#{account},#{year},#{money},#{type})
+    </insert>
+
+    <insert id="insertMonthExpend" parameterType="com.ypf.feijibookserver.entity.MonthExpendBean">
+        insert into month_main_expend(account,year,month,money,type)
+        values (#{account},#{year},#{month},#{money},#{type})
+    </insert>
+
+    <!--删除用户的单条记录-->
+    <delete id="deleteRecord">
+        delete
+        from
+            detail_record
+        where detail_record.id = #{id}
+          and detail_record.account = #{account}
+    </delete>
+
+    <delete id="deleteTypeSetting" parameterType="String">
+        delete
+        from
+            record_type
+        where record_type.account = #{value}
+    </delete>
+
+    <delete id="deleteMonthExpend" parameterType="com.ypf.feijibookserver.entity.MonthExpendBean">
+        delete
+        from month_main_expend
+        where month_main_expend.year = #{year} and
+            month_main_expend.month = #{month} and
+            month_main_expend.account = #{account} and
+            month_main_expend.type = #{type}
+    </delete>
+
+    <delete id="deleteYearExpend" parameterType="com.ypf.feijibookserver.entity.YearExpendBean">
+        delete
+        from  year_main_expend
+        where year_main_expend.year = #{year} and
+            year_main_expend.account = #{account} and
+            year_main_expend.type = #{type}
+    </delete>
+
+    <!--查找该账户名，返回该账户的用于信息-->
+    <select id="findAccount" parameterType="String" resultType="com.ypf.feijibookserver.entity.UserInfoBean">
+        select *
+        from user_info
+        where user_info.account
+            =
+              #{value}
+    </select>
+
+    <select id="findRecord" parameterType="com.ypf.feijibookserver.entity.DetailRecordBean" resultType="com.ypf.feijibookserver.entity.DetailRecordBean">
+        select * from detail_record
+        where  detail_record.id = #{id} and
+              detail_record.account = #{account}
+    </select>
+
+    <select id="adminLogin" parameterType="String" resultType="com.ypf.feijibookserver.entity.AdminBean">
+        select * from admin_info where admin_info.name = #{value}
+    </select>
+
+    <select id="getUser" resultType="com.ypf.feijibookserver.entity.UserInfoBean">
+        select * from user_info
+    </select>
+
+    <select id="getDataModel" resultType="com.ypf.feijibookserver.entity.DataModelBean">
+        select * from data_model where data_model.id  = 1
+    </select>
+
+    <select id="getYearExpend" parameterType="com.ypf.feijibookserver.entity.YearExpendBean" resultType="com.ypf.feijibookserver.entity.YearExpendBean">
+        select * from year_main_expend where year_main_expend.year = #{year} and
+                                             year_main_expend.account = #{account} and
+                                             year_main_expend.type = #{type}
+    </select>
+
+    <select id="getMainProportion" parameterType="int"  resultMap="MainProportionMap">
+        select year,type, sum(money) as money from year_main_expend where year_main_expend.year = #{year}
+        group by type order by money desc limit 5
+    </select>
+    
+    <select id="getExpendTrend" parameterType="int" resultMap="ExpendTrendMap">
+      select * from
+    (select type,month,AVG (money) as money from month_main_expend
+        where month_main_expend.year = #{year} and month_main_expend.type in
+            (select types.type from(
+              select type,sum(money) as money from year_main_expend
+              where year_main_expend.year = #{year}
+              group by type order by money desc limit 3) as types)
+            group by month,type) as monthdata
+            order by monthdata.type,monthdata.month asc;
+    </select>
+
+    <select id="getMonthRecord" resultMap="MonthMoneyMap">
+        select day, sum(money) as money from detail_record
+        where detail_record.account = #{account} and detail_record.year = #{year}
+              and detail_record.ioe = #{ioe} and detail_record.month = #{month}
+        group by day order by day asc;
+    </select>
+
+    <select id="getDayRecord" resultMap="DayMoneyMap">
+        select day, detail_type, money from detail_record
+        where detail_record.account = #{account} and detail_record.year = #{year}
+              and detail_record.ioe = #{ioe} and detail_record.month = #{month}
+        order by day asc ,money desc;
+    </select>
+
+    <resultMap id="MainProportionMap" type="java.util.HashMap">
+        <result column="year" property="year" jdbcType="INTEGER"/>
+        <result column="type" property="type" jdbcType="CHAR"/>
+        <result column="money" property="money" jdbcType="DECIMAL"/>
+    </resultMap>
+    
+    <resultMap id="ExpendTrendMap" type="java.util.HashMap">
+        <result column="month" property="month" jdbcType="INTEGER"/>
+        <result column="type" property="type" jdbcType="CHAR"/>
+        <result column="money" property="money" jdbcType="DECIMAL"/>
+    </resultMap>
+
+    <resultMap id="MonthMoneyMap" type="java.util.HashMap">
+        <result column="money" property="money" jdbcType="VARCHAR"/>
+        <result column="month" property="month" jdbcType="CHAR"/>
+    </resultMap>
+
+    <resultMap id="DayMoneyMap" type="java.util.HashMap">
+        <result column="day" property="day" jdbcType="CHAR"/>
+        <result column="money" property="money" jdbcType="VARCHAR"/>
+        <result column="detail_type" property="type" jdbcType="VARCHAR"/>
+    </resultMap>
+
+    <select id="getMonthExpend" parameterType="com.ypf.feijibookserver.entity.MonthExpendBean" resultType="com.ypf.feijibookserver.entity.MonthExpendBean">
+        select * from month_main_expend where month_main_expend.year = #{year} and
+                                              month_main_expend.month = #{month} and
+                                              month_main_expend.account = #{account} and
+                                              month_main_expend.type = #{type}
+    </select>
+
+    <update id="updateYearExpend" >
+        update year_main_expend set year_main_expend.money = #{money}
+        where year_main_expend.year = #{year} and
+            year_main_expend.account = #{account} and
+            year_main_expend.type = #{type}
+    </update>
+
+    <update id="updateMonthExpend">
+        update month_main_expend set month_main_expend.money = #{money}
+        where month_main_expend.year = #{year} and
+            month_main_expend.month = #{month} and
+            month_main_expend.account = #{account} and
+            month_main_expend.type = #{type}
+    </update>
+
+    <update id="updateDataModel">
+        update data_model
+        <set>
+            data_model.catering = #{catering},
+            data_model.traffic = #{traffic},
+            data_model.daily  = #{daily},
+            data_model.amusement = #{amusement},
+            data_model.shopping = #{shopping},
+        </set>
+        where data_model.id = 1
+    </update>
+
+
+    <!--设置该账户的头像路径-->
+    <update id="setPortrait">
+        update user_info
+        set user_info.portrait = #{portrait}
+        where user_info.account = #{account}
+    </update>
+
+    <!--更改该用户的密码-->
+    <update id="setPassword">
+        update user_info
+        set user_info.password = #{password}
+        where user_info.account = #{account}
+    </update>
+
+    <!--设置该账户昵称-->
+    <update id="setNickname">
+        update user_info
+        set user_info.nickname = #{nickname }
+        where user_info.account = #{account}
+    </update>
+
+    <!--设置该账户的性别-->
+    <update id="setSex">
+        update user_info
+        set user_info.sex = #{sex}
+        where user_info.account = #{account}
+    </update>
+
+    <!--设置该用户的照片及上传情况-->
+    <update id="setImgUrl">
+        <foreach collection="photos" item="item" index="index" open="" close="" separator=";">
+            update detail_record
+            <set>
+                img_url = #{item.img_url},
+                is_img_upload = true
+            </set>
+            where account = #{account}
+            and id = #{item.id}
+        </foreach>
+    </update>
+
+    <!--设置改用的视频及上传情况-->
+    <update id="setVideoUrl">
+        <foreach collection="videos" item="item" index="index" open="" close="" separator=";">
+            update detail_record
+            <set>
+                video_url = #{item.video_url},
+                is_video_upload = true
+            </set>
+            where account = #{account}
+            and id = #{item.id}
+        </foreach>
+    </update>
+</mapper>
